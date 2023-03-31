@@ -75,6 +75,8 @@ interface PickerProps<T> {
    * @default {borderBottomWidth: 1, borderTopWidth: 1, borderColor: 'black'}
    */
   selectorStyle?: ViewStyle;
+
+  isEndReached?: (Value: Boolean) => Boolean;
 }
 
 type AnimatedGHContext = {
@@ -92,6 +94,7 @@ const Picker = <T,>({
   itemDistanceMultipier = ITEM_DISTANCE,
   wheelHeightMultiplier = WHEEL_HEIGHT_MULTIPLIER,
   selectorStyle,
+  isEndReached,
 }: PickerProps<T>) => {
   let index = data.findIndex((item) => item === defaultItem);
   index = index === -1 ? 0 : index;
@@ -119,6 +122,8 @@ const Picker = <T,>({
       ) {
         lastIndexY.value =
           Math.round(translateY.value / -itemHeight) * -itemHeight;
+          optionsIndex.value = Math.round(translateY.value / -itemHeight);
+         
         runOnJS(ReactNativeHapticFeedback.trigger)('impactLight');
       }
     },
@@ -138,6 +143,11 @@ const Picker = <T,>({
             );
           }
           optionsIndex.value = Math.round(translateY.value / -itemHeight);
+          if(data.length >=optionsIndex.value){
+            if (isEndReached) {
+              runOnJS(isEndReached)(true)}
+          }else{   if (isEndReached) {
+            runOnJS(isEndReached)(false)}}
           translateY.value = withSpring(
             optionsIndex.value * -itemHeight,
             SPRING_CONFIG,
