@@ -18,6 +18,7 @@ const ITEM_HEIGHT = 40;
 const ITEM_WIDTH = 40;
 const ITEM_DISTANCE = 0.285;
 const WHEEL_HEIGHT_MULTIPLIER = 2.6;
+const WHEEL_WIDTH_MULTIPLIER = 2.6;
 
 export const SPRING_CONFIG = {
 	damping: 40,
@@ -62,7 +63,7 @@ interface PickerProps<T> {
 	 */
 	itemHeight?: number;
 	/**
-	 * width of each item (only for orizontal picker)
+	 * width of each item (only for horizontal picker)
 	 * @default 40
 	 */
 	itemWidth?: number;
@@ -70,12 +71,17 @@ interface PickerProps<T> {
 	 * multiplier for distance between items
 	 * @default 0.285
 	 */
-	itemDistanceMultipier?: number;
+	itemDistanceMultiplier?: number;
 	/**
 	 * multiplier for wheel height
 	 * @default 2.6
 	 */
 	wheelHeightMultiplier?: number;
+	/**
+	 * multiplier for wheel width (only for horizontal picker)
+	 * @default 2.6
+	 */
+	wheelWidthMultiplier?: number;
 	/**
 	 * style for selector lines
 	 * @default {borderBottomWidth: 1, borderTopWidth: 1, borderColor: 'black'}
@@ -112,8 +118,9 @@ const Picker = <T,>({
 	keyExtractor,
 	itemHeight = ITEM_HEIGHT,
 	itemWidth = ITEM_WIDTH,
-	itemDistanceMultipier = ITEM_DISTANCE,
+	itemDistanceMultiplier: itemDistanceMultipier = ITEM_DISTANCE,
 	wheelHeightMultiplier = WHEEL_HEIGHT_MULTIPLIER,
+	wheelWidthMultiplier = WHEEL_WIDTH_MULTIPLIER,
 	selectorStyle,
 	isEndReached,
 	endOffset = 10,
@@ -243,12 +250,7 @@ const Picker = <T,>({
 	return (
 		<PanGestureHandler onGestureEvent={gestureHandler}>
 			<Animated.View
-				style={[
-					style.picker,
-					{
-						alignItems: isHorizontal ? "center" : undefined,
-					},
-				]}
+				style={[isHorizontal ? style.picker_horizontal : style.picker]}
 			>
 				<View style={style.picker__offset}>
 					{data.map((item, listIndex) => (
@@ -264,10 +266,11 @@ const Picker = <T,>({
 							renderItem={renderItem}
 							itemDistanceMultipier={itemDistanceMultipier}
 							wheelHeightMultiplier={wheelHeightMultiplier}
+							wheelWidthMultiplier={wheelWidthMultiplier}
 							isHorizontal={isHorizontal}
 						/>
 					))}
-					<View style={[style.selector, selectorStyle]} />
+					{!isHorizontal && <View style={[style.selector, selectorStyle]} />}
 				</View>
 			</Animated.View>
 		</PanGestureHandler>
@@ -281,27 +284,30 @@ Picker.defaultProps = {
 	renderItem: undefined,
 	textStyle: undefined,
 	itemHeight: ITEM_HEIGHT,
+	itemWidth: ITEM_WIDTH,
 	itemDistanceMultipier: ITEM_DISTANCE,
 	wheelHeightMultiplier: WHEEL_HEIGHT_MULTIPLIER,
+	wheelWidthMultiplier: WHEEL_WIDTH_MULTIPLIER,
 	selectorStyle: undefined,
+	isHorizontal: false,
 };
 
 const style = StyleSheet.create({
 	picker: {
 		flexDirection: "column",
+
 		height: ITEM_HEIGHT * 5,
 	},
 	picker_horizontal: {
+		flexDirection: "column",
+		height: ITEM_HEIGHT * 5,
 		alignItems: "center",
-		height: ITEM_HEIGHT * WHEEL_HEIGHT_MULTIPLIER,
+		left: -ITEM_WIDTH / 2,
 	},
 	picker__offset: {
 		top: ITEM_HEIGHT * 2,
 	},
-	picker__offset_Horizontal: {
-		flexDirection: "row",
-		top: ITEM_HEIGHT,
-	},
+
 	selector: {
 		borderBottomWidth: 1,
 		borderColor: "white",
