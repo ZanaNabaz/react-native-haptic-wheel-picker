@@ -16,6 +16,7 @@ interface PickerItemProps<T> {
 	renderItem?: (item: T) => JSX.Element;
 	itemDistanceMultipier: number;
 	wheelHeightMultiplier: number;
+	wheelWidthMultiplier: number;
 	isHorizontal: boolean;
 }
 
@@ -50,6 +51,7 @@ const PickerItem = <T,>({
 	renderItem,
 	itemDistanceMultipier,
 	wheelHeightMultiplier,
+	wheelWidthMultiplier,
 	isHorizontal,
 }: PickerItemProps<T>) => {
 	const [width, setWidth] = useState(0);
@@ -65,14 +67,15 @@ const PickerItem = <T,>({
 			transform: [
 				isHorizontal
 					? {
-							translateX: value.value * itemWidth * wheelHeightMultiplier,
+							translateX: value.value * itemWidth * wheelWidthMultiplier * 1.5,
 					  }
 					: {
 							translateY: value.value * itemHeight * wheelHeightMultiplier,
 					  },
 			],
 			opacity: 1 - Math.abs(value.value),
-			height: itemWidth,
+			height: isHorizontal ? undefined : itemHeight,
+			width: isHorizontal ? itemWidth : undefined,
 		};
 	});
 
