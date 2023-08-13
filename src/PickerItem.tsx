@@ -67,15 +67,13 @@ const PickerItem = <T,>({
 			transform: [
 				isHorizontal
 					? {
-							translateX: value.value * itemWidth * wheelWidthMultiplier * 1.5,
+							translateX: value.value * itemWidth * wheelWidthMultiplier,
 					  }
 					: {
 							translateY: value.value * itemHeight * wheelHeightMultiplier,
 					  },
 			],
 			opacity: 1 - Math.abs(value.value),
-			height: isHorizontal ? undefined : itemHeight,
-			width: isHorizontal ? itemWidth : undefined,
 		};
 	});
 
@@ -101,8 +99,9 @@ const PickerItem = <T,>({
 				}
 			}}
 			style={[
-				isHorizontal === true ? styles.item_horizontal : styles.item,
+				isHorizontal ? styles.item_horizontal : styles.item,
 				animatedStyleWheelTranslation,
+				isHorizontal ? { width: itemWidth } : { height: itemHeight },
 			]}
 		>
 			<Animated.View style={[styles.itemInner, animatedStyleScaling]}>
