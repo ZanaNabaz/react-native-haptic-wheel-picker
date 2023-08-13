@@ -118,7 +118,7 @@ const Picker = <T,>({
 	keyExtractor,
 	itemHeight = ITEM_HEIGHT,
 	itemWidth = ITEM_WIDTH,
-	itemDistanceMultiplier: itemDistanceMultipier = ITEM_DISTANCE,
+	itemDistanceMultiplier = ITEM_DISTANCE,
 	wheelHeightMultiplier = WHEEL_HEIGHT_MULTIPLIER,
 	wheelWidthMultiplier = WHEEL_WIDTH_MULTIPLIER,
 	selectorStyle,
@@ -264,7 +264,7 @@ const Picker = <T,>({
 							itemWidth={itemWidth}
 							textStyle={textStyle}
 							renderItem={renderItem}
-							itemDistanceMultipier={itemDistanceMultipier}
+							itemDistanceMultipier={itemDistanceMultiplier}
 							wheelHeightMultiplier={wheelHeightMultiplier}
 							wheelWidthMultiplier={wheelWidthMultiplier}
 							isHorizontal={isHorizontal}
@@ -290,6 +290,7 @@ Picker.defaultProps = {
 	wheelWidthMultiplier: WHEEL_WIDTH_MULTIPLIER,
 	selectorStyle: undefined,
 	isHorizontal: false,
+	endOffset: undefined,
 };
 
 const style = StyleSheet.create({
