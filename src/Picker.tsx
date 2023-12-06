@@ -1,4 +1,4 @@
-import React from "react";
+import React, { forwardRef, useImperativeHandle } from "react";
 import { StyleSheet, TextStyle, View, ViewStyle } from "react-native";
 import {
 	PanGestureHandler,
@@ -10,6 +10,7 @@ import Animated, {
 	useSharedValue,
 	withDecay,
 	withSpring,
+	withTiming,
 } from "react-native-reanimated";
 import ReactNativeHapticFeedback from "react-native-haptic-feedback";
 import PickerItem from "./PickerItem";
@@ -102,6 +103,8 @@ interface PickerProps<T> {
 	 * @default {false}
 	 * */
 	isHorizontal?: boolean;
+
+	scrollToIndex?: (index: number) => void;
 }
 
 type AnimatedGHContext = {
@@ -109,173 +112,189 @@ type AnimatedGHContext = {
 	startX: number;
 };
 
-const Picker = <T,>({
-	data,
-	defaultItem,
-	onItemSelect,
-	textStyle,
-	renderItem,
-	keyExtractor,
-	itemHeight = ITEM_HEIGHT,
-	itemWidth = ITEM_WIDTH,
-	itemDistanceMultiplier = ITEM_DISTANCE,
-	wheelHeightMultiplier = WHEEL_HEIGHT_MULTIPLIER,
-	wheelWidthMultiplier = WHEEL_WIDTH_MULTIPLIER,
-	selectorStyle,
-	isEndReached,
-	endOffset = 10,
-	isHorizontal = false,
-}: PickerProps<T>) => {
-	let index = data.findIndex((item) => item === defaultItem);
-	index = index === -1 ? 0 : index;
+const Picker = forwardRef(
+	<T,>(
+		{
+			data,
+			defaultItem,
+			onItemSelect,
+			textStyle,
+			renderItem,
+			keyExtractor,
+			itemHeight = ITEM_HEIGHT,
+			itemWidth = ITEM_WIDTH,
+			itemDistanceMultiplier = ITEM_DISTANCE,
+			wheelHeightMultiplier = WHEEL_HEIGHT_MULTIPLIER,
+			wheelWidthMultiplier = WHEEL_WIDTH_MULTIPLIER,
+			selectorStyle,
+			isEndReached,
+			endOffset = 10,
+			isHorizontal = false,
+		}: PickerProps<T>,
+		ref: React.Ref<{ scrollToItem: (index: number) => void }>,
+	) => {
+		let index = data.findIndex((item) => item === defaultItem);
+		index = index === -1 ? 0 : index;
 
-	const optionsIndex = useSharedValue(index);
-	const translateY = useSharedValue(optionsIndex.value * -itemHeight);
-	const lastIndexY = useSharedValue(index * -itemHeight);
-	const maximum = (data.length - 1) * -itemHeight;
+		const optionsIndex = useSharedValue(index);
+		const translateY = useSharedValue(optionsIndex.value * -itemHeight);
+		const lastIndexY = useSharedValue(index * -itemHeight);
+		const maximum = (data.length - 1) * -itemHeight;
 
-	const translateX = useSharedValue(optionsIndex.value * -itemWidth);
-	const lastIndexX = useSharedValue(index * -itemWidth);
-	const gestureHandler = useAnimatedGestureHandler<
-		PanGestureHandlerGestureEvent,
-		AnimatedGHContext
-	>({
-		onStart: (_, ctx) => {
+		const translateX = useSharedValue(optionsIndex.value * -itemWidth);
+		const lastIndexX = useSharedValue(index * -itemWidth);
+		const scrollToItem = (index: number) => {
+			"worklet";
 			if (isHorizontal) {
-				ctx.startX = optionsIndex.value * -itemWidth;
+				translateX.value = withTiming(-index * itemWidth);
 			} else {
-				ctx.startY = optionsIndex.value * -itemHeight;
+				translateY.value = withTiming(-index * itemHeight);
 			}
-		},
-		onActive: (event, ctx) => {
-			if (isHorizontal) {
-				translateX.value = Math.min(
-					Math.max(ctx.startX + event.translationX, maximum),
-					0,
-				);
-				if (
-					translateX.value > lastIndexX.value + itemWidth ||
-					translateX.value < lastIndexX.value - itemWidth
-				) {
-					lastIndexX.value =
-						Math.round(translateX.value / -itemWidth) * -itemWidth;
+		};
+		useImperativeHandle(ref, () => ({
+			scrollToItem,
+		}));
+		const gestureHandler = useAnimatedGestureHandler<
+			PanGestureHandlerGestureEvent,
+			AnimatedGHContext
+		>({
+			onStart: (_, ctx) => {
+				if (isHorizontal) {
+					ctx.startX = optionsIndex.value * -itemWidth;
+				} else {
+					ctx.startY = optionsIndex.value * -itemHeight;
+				}
+			},
+			onActive: (event, ctx) => {
+				if (isHorizontal) {
+					translateX.value = Math.min(
+						Math.max(ctx.startX + event.translationX, maximum),
+						0,
+					);
+					if (
+						translateX.value > lastIndexX.value + itemWidth ||
+						translateX.value < lastIndexX.value - itemWidth
+					) {
+						lastIndexX.value =
+							Math.round(translateX.value / -itemWidth) * -itemWidth;
+						optionsIndex.value = Math.round(translateX.value / -itemWidth);
+
+						runOnJS(ReactNativeHapticFeedback.trigger)("impactLight");
+					}
+				} else {
+					translateY.value = Math.min(
+						Math.max(ctx.startY + event.translationY, maximum),
+						0,
+					);
+					if (
+						translateY.value > lastIndexY.value + itemHeight ||
+						translateY.value < lastIndexY.value - itemHeight
+					) {
+						lastIndexY.value =
+							Math.round(translateY.value / -itemHeight) * -itemHeight;
+						optionsIndex.value = Math.round(translateY.value / -itemHeight);
+
+						runOnJS(ReactNativeHapticFeedback.trigger)("impactLight");
+					}
+				}
+			},
+			onEnd: (event) => {
+				if (isHorizontal) {
 					optionsIndex.value = Math.round(translateX.value / -itemWidth);
 
-					runOnJS(ReactNativeHapticFeedback.trigger)("impactLight");
-				}
-			} else {
-				translateY.value = Math.min(
-					Math.max(ctx.startY + event.translationY, maximum),
-					0,
-				);
-				if (
-					translateY.value > lastIndexY.value + itemHeight ||
-					translateY.value < lastIndexY.value - itemHeight
-				) {
-					lastIndexY.value =
-						Math.round(translateY.value / -itemHeight) * -itemHeight;
+					translateX.value = withDecay(
+						{
+							velocity: event.velocityX,
+							deceleration: 0.985,
+							clamp: [maximum, 0],
+						},
+						() => {
+							if (onItemSelect) {
+								runOnJS(onItemSelect)(
+									data[Math.round(translateX.value / -itemHeight)],
+								);
+							}
+							optionsIndex.value = Math.round(translateX.value / -itemHeight);
+							if (optionsIndex.value >= data.length - endOffset) {
+								if (isEndReached) {
+									runOnJS(isEndReached)(true);
+								}
+							} else {
+								if (isEndReached) {
+									runOnJS(isEndReached)(false);
+								}
+							}
+							translateX.value = withSpring(
+								optionsIndex.value * -itemHeight,
+								SPRING_CONFIG,
+							);
+						},
+					);
+				} else {
 					optionsIndex.value = Math.round(translateY.value / -itemHeight);
 
-					runOnJS(ReactNativeHapticFeedback.trigger)("impactLight");
+					translateY.value = withDecay(
+						{
+							velocity: event.velocityY,
+							deceleration: 0.985,
+							clamp: [maximum, 0],
+						},
+						() => {
+							if (onItemSelect) {
+								runOnJS(onItemSelect)(
+									data[Math.round(translateY.value / -itemHeight)],
+								);
+							}
+							optionsIndex.value = Math.round(translateY.value / -itemHeight);
+							if (optionsIndex.value >= data.length - endOffset) {
+								if (isEndReached) {
+									runOnJS(isEndReached)(true);
+								}
+							} else {
+								if (isEndReached) {
+									runOnJS(isEndReached)(false);
+								}
+							}
+							translateY.value = withSpring(
+								optionsIndex.value * -itemHeight,
+								SPRING_CONFIG,
+							);
+						},
+					);
 				}
-			}
-		},
-		onEnd: (event) => {
-			if (isHorizontal) {
-				optionsIndex.value = Math.round(translateX.value / -itemWidth);
+			},
+		});
 
-				translateX.value = withDecay(
-					{
-						velocity: event.velocityX,
-						deceleration: 0.985,
-						clamp: [maximum, 0],
-					},
-					() => {
-						if (onItemSelect) {
-							runOnJS(onItemSelect)(
-								data[Math.round(translateX.value / -itemHeight)],
-							);
-						}
-						optionsIndex.value = Math.round(translateX.value / -itemHeight);
-						if (optionsIndex.value >= data.length - endOffset) {
-							if (isEndReached) {
-								runOnJS(isEndReached)(true);
-							}
-						} else {
-							if (isEndReached) {
-								runOnJS(isEndReached)(false);
-							}
-						}
-						translateX.value = withSpring(
-							optionsIndex.value * -itemHeight,
-							SPRING_CONFIG,
-						);
-					},
-				);
-			} else {
-				optionsIndex.value = Math.round(translateY.value / -itemHeight);
-
-				translateY.value = withDecay(
-					{
-						velocity: event.velocityY,
-						deceleration: 0.985,
-						clamp: [maximum, 0],
-					},
-					() => {
-						if (onItemSelect) {
-							runOnJS(onItemSelect)(
-								data[Math.round(translateY.value / -itemHeight)],
-							);
-						}
-						optionsIndex.value = Math.round(translateY.value / -itemHeight);
-						if (optionsIndex.value >= data.length - endOffset) {
-							if (isEndReached) {
-								runOnJS(isEndReached)(true);
-							}
-						} else {
-							if (isEndReached) {
-								runOnJS(isEndReached)(false);
-							}
-						}
-						translateY.value = withSpring(
-							optionsIndex.value * -itemHeight,
-							SPRING_CONFIG,
-						);
-					},
-				);
-			}
-		},
-	});
-
-	return (
-		<PanGestureHandler onGestureEvent={gestureHandler}>
-			<Animated.View
-				style={[isHorizontal ? style.picker_horizontal : style.picker]}
-			>
-				<View style={style.picker__offset}>
-					{data.map((item, listIndex) => (
-						<PickerItem
-							key={keyExtractor ? keyExtractor(item) : listIndex}
-							item={item}
-							index={listIndex}
-							translateY={translateY}
-							translateX={translateX}
-							itemHeight={itemWidth}
-							itemWidth={itemWidth}
-							textStyle={textStyle}
-							renderItem={renderItem}
-							itemDistanceMultipier={itemDistanceMultiplier}
-							wheelHeightMultiplier={wheelHeightMultiplier}
-							wheelWidthMultiplier={wheelWidthMultiplier}
-							isHorizontal={isHorizontal}
-						/>
-					))}
-					{!isHorizontal && <View style={[style.selector, selectorStyle]} />}
-				</View>
-			</Animated.View>
-		</PanGestureHandler>
-	);
-};
+		return (
+			<PanGestureHandler onGestureEvent={gestureHandler}>
+				<Animated.View
+					style={[isHorizontal ? style.picker_horizontal : style.picker]}
+				>
+					<View style={style.picker__offset}>
+						{data.map((item, listIndex) => (
+							<PickerItem
+								key={keyExtractor ? keyExtractor(item) : listIndex}
+								item={item}
+								index={listIndex}
+								translateY={translateY}
+								translateX={translateX}
+								itemHeight={itemWidth}
+								itemWidth={itemWidth}
+								textStyle={textStyle}
+								renderItem={renderItem}
+								itemDistanceMultipier={itemDistanceMultiplier}
+								wheelHeightMultiplier={wheelHeightMultiplier}
+								wheelWidthMultiplier={wheelWidthMultiplier}
+								isHorizontal={isHorizontal}
+							/>
+						))}
+						{!isHorizontal && <View style={[style.selector, selectorStyle]} />}
+					</View>
+				</Animated.View>
+			</PanGestureHandler>
+		);
+	},
+);
 
 Picker.defaultProps = {
 	defaultItem: undefined,
